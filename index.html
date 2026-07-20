@@ -1,235 +1,43 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>GPX Time Search</title>
-
-<style>
-body{
-    font-family:Arial;
-    text-align: right;
-    margin:30px;
-}
-
-input{
-    margin:5px;
-}
-
-button{
-    margin:5px;
-}
-
-#result{
-    margin-top:20px;
-    font-size:18px;
-}
-</style>
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPX Time Search</title>
+    <link rel="stylesheet" href="./src/styles.css">
 </head>
-
 <body>
+    <main class="app">
+        <h1>GPX Time Search</h1>
 
-<h2>GPX Time Search</h2>
+        <label for="gpxFile">GPX files</label>
+        <input type="file" id="gpxFile" accept=".gpx,application/gpx+xml" multiple>
+        <ul id="fileList" aria-label="Loaded GPX files"></ul>
+        <p id="status" role="status"></p>
 
-<input type="file" id="gpxFile" accept=".gpx" multiple>
-<ul id="fileList"></ul>
+        <label for="timeInput">Time</label>
+        <input
+            type="text"
+            id="timeInput"
+            size="30"
+            placeholder="2008-07-12T10:25:30Z">
 
-<br>
+        <div class="actions" aria-label="Point navigation">
+            <button type="button" id="previousPoint">Previous Point</button>
+            <button type="button" id="nextPoint">Next Point</button>
+            <button type="button" id="nextDate">Next Date</button>
+        </div>
 
-Time：
+        <div class="actions">
+            <button type="button" id="showCoordinate">Show Coordinate</button>
+            <button type="button" id="showGoogleMap">Show on Google Map</button>
+        </div>
 
-<input
-type="text"
-id="timeInput"
-size="30"
-placeholder="2008-07-12T10:25:30Z">
+        <div id="result" aria-live="polite"></div>
+    </main>
 
-<br>
-<button onclick="prevPoint()">
-Previous Point
-</button>
-<button onclick="nextPoint()">
-Next Point
-</button>
-<button onclick="nextDate()">
-Next Date
-</button>
-<br>
-
-<button onclick="showCoordinate()">
-Show Coordinate
-</button>
-
-<button onclick="showGoogleMap()">
-Show on Google Map
-</button>
-
-<div id="result"></div>
-
-<script>
-
-const fileList = document.getElementById('fileList');
-
-let trackPoints=[];
-let currentPoint=null;
-let currentIndex=0;
-
-document.getElementById("gpxFile").addEventListener("change",function(){
-
-    fileList.innerHTML = ''; // Clear previous list
-    trackPoints=[];
-    const files=this.files;
- 
-    if(!files) return;
-
-    for (const file of files){
-
-        const reader=new FileReader();
-
-        reader.onload=function(e){
-
-            const parser=new DOMParser();
-
-            const xml=parser.parseFromString(
-                e.target.result,
-                "application/xml"
-            );
-
-            const pts=xml.getElementsByTagName("trkpt");
-
-            for(let p of pts){
-
-                let lat=parseFloat(p.getAttribute("lat"));
-                let lon=parseFloat(p.getAttribute("lon"));
-
-                let eleNode=p.getElementsByTagName("ele")[0];
-                let timeNode=p.getElementsByTagName("time")[0];
-
-                let ele=eleNode?parseFloat(eleNode.textContent):0;
-                let time=timeNode?new Date(timeNode.textContent):null;
-
-                if(time){
-                    trackPoints.push({
-                        fileName:file.name,
-                        lat,
-                        lon,
-                        ele,
-                        time
-                    });
-                }
-            }
-
-            if (trackPoints.length > 0) {
-                trackPoints.sort((a, b) => a.time - b.time);
-                currentIndex = 0;
-                document.getElementById("timeInput").value =
-                    trackPoints[currentIndex].time.toISOString();
-            } 
-
-            const li = document.createElement('li');
-            li.textContent = file.name + ":\t" + trackPoints.length;
-            fileList.appendChild(li);
-
-        }
-
-        reader.readAsText(file);
-
-    }
-
-});
-
-function findClosestPoint(){
-
-    const input=document.getElementById("timeInput").value;
-
-    const target=new Date(input);
-
-    if(isNaN(target)){
-        alert("Time format error.");
-        return null;
-    }
-
-    let best=null;
-    let bestDiff=Number.MAX_VALUE;
-
-    for(let p of trackPoints){
-
-        let diff=Math.abs(p.time-target);
-
-        if(diff<bestDiff){
-            bestDiff=diff;
-            best=p;
-            currentIndex=trackPoints.indexOf(p);
-        }
-
-    }
-
-    return best;
-
-}
-
-function nextDate(){
-    const currentDate = trackPoints[currentIndex].time.toISOString().slice(0,10);
-    for(idx=currentIndex; idx<trackPoints.length; idx++){
-        if(currentDate!=trackPoints[idx].time.toISOString().slice(0,10)){
-            currentIndex=idx;
-            document.getElementById("timeInput").value =
-                trackPoints[currentIndex].time.toISOString();
-            break;
-        }
-    }
-}
-
-function nextPoint(){
-    if (currentIndex+1 < trackPoints.length) {
-        currentIndex++;
-        document.getElementById("timeInput").value =
-            trackPoints[currentIndex].time.toISOString();
-    }
-}
-
-function prevPoint(){
-    if (currentIndex > 0) {
-        currentIndex--;
-        document.getElementById("timeInput").value =
-            trackPoints[currentIndex].time.toISOString();
-    }
-}
-
-function showCoordinate(){
-
-    currentPoint=findClosestPoint();
-
-    if(!currentPoint) return;
-
-    document.getElementById("result").innerHTML=
-        "<b>File:</b> "+currentPoint.fileName+
-        "<br><b>Index:</b> "+currentIndex+
-        "<br><b>Latitude:</b> "+currentPoint.lat+
-        "<br><b>Longitude:</b> "+currentPoint.lon+
-        "<br><b>Elevation:</b> "+currentPoint.ele+
-        "<br><b>Time:</b> "+currentPoint.time.toISOString();
-
-}
-
-function showGoogleMap(){
-
-    if(currentPoint==null)
-        currentPoint=findClosestPoint();
-
-    if(!currentPoint) return;
-
-    const url=
-        "https://www.google.com/maps?q="+
-        currentPoint.lat+
-        ","+
-        currentPoint.lon;
-
-    window.open(url,"_blank");
-
-}
-
-</script>
-
+    <script src="./node_modules/gpxparser/dist/GPXParser.min.js"></script>
+    <script>window.GPXParser = gpxParser;</script>
+    <script type="module" src="./src/main.js"></script>
 </body>
 </html>
