@@ -1,11 +1,11 @@
-const fs = require("node:fs/promises");
-const path = require("node:path");
+import { readFile, mkdir, writeFile } from "node:fs/promises";
+import { resolve, join } from "node:path";
 
-const projectRoot = path.resolve(__dirname, "..");
-const outputDirectory = path.join(projectRoot, "dist");
+const projectRoot = resolve(__dirname, "..");
+const outputDirectory = join(projectRoot, "dist");
 
 const readProjectFile = (relativePath) =>
-    fs.readFile(path.join(projectRoot, relativePath), "utf8");
+    readFile(join(projectRoot, relativePath), "utf8");
 
 function removeModuleSyntax(source) {
     return source
@@ -43,8 +43,8 @@ async function build() {
         throw new Error("Static build still contains an external project asset reference.");
     }
 
-    await fs.mkdir(outputDirectory, { recursive: true });
-    await fs.writeFile(path.join(outputDirectory, "index.html"), staticHtml);
+    await mkdir(outputDirectory, { recursive: true });
+    await writeFile(join(outputDirectory, "index.html"), staticHtml);
     console.log("Built dist/index.html");
 }
 
